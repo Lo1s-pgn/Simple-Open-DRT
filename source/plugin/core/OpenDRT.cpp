@@ -47,6 +47,7 @@ extern char** environ;
 #include "OpenDRTParams.h"
 #include "OpenDRTPresets.h"
 #include "OpenDRTProcessor.h"
+#include "OpenDRTLog.h"
 
 #define kPluginName "LSP - Simple Open DRT"
 #define kPluginGrouping "LSP - Color"
@@ -54,6 +55,7 @@ extern char** environ;
 #define kPluginIdentifier "com.lsp.simple_open_drt"
 #define kPluginVersionMajor 1
 #define kPluginVersionMinor 1
+#define kPluginVersionString "1.1.1"
 
 namespace {
 
@@ -2307,6 +2309,22 @@ const char* tooltipForParam(const std::string& name) {
   return it == kTooltips.end() ? nullptr : it->second;
 }
 
+bool openDrtParamLeafIs(const std::string& p_Name, const char* p_Leaf) {
+  const size_t n = std::strlen(p_Leaf);
+  if (n == 0)
+    return false;
+  if (p_Name.size() < n)
+    return false;
+  if (p_Name.size() == n)
+    return p_Name == p_Leaf;
+  if (p_Name.size() < n + 1u)
+    return false;
+  const char s = p_Name[p_Name.size() - n - 1u];
+  if (s != '/' && s != '.')
+    return false;
+  return p_Name.compare(p_Name.size() - n, n, p_Leaf) == 0;
+}
+
 class OpenDRTEffect : public OFX::ImageEffect {
  public:
   // ===== Effect Lifecycle: construct + initial menu/state sync =====
@@ -2326,6 +2344,24 @@ class OpenDRTEffect : public OFX::ImageEffect {
     setCubeViewerStatusLabel("Disconnected");
     startCubeViewerStatusMonitor();
     startCubeViewerIoWorker();
+
+    {
+      const std::string versionStr = kPluginVersionString;
+      OFX::ImageEffectHostDescription* host = OFX::getImageEffectHostDescription();
+      const std::string hostName = host ? host->hostName : "unknown";
+      const std::string hostLabel = host ? host->hostLabel : "";
+      std::string hostVersion;
+      if (host) {
+        if (!host->versionLabel.empty())
+          hostVersion = host->versionLabel;
+        else if (host->versionMajor != 0 || host->versionMinor != 0 || host->versionMicro != 0)
+          hostVersion = std::to_string(host->versionMajor) + "." + std::to_string(host->versionMinor) + "." +
+                        std::to_string(host->versionMicro);
+      }
+      const std::string buildInfo = __DATE__;
+      const std::string bundlePath = LSPOpenDRTLog::getPluginBundleRootPath();
+      LSP_OPENDRT_LOG_SESSION_START(kPluginName, versionStr, hostName, hostLabel, hostVersion, buildInfo, bundlePath, "");
+    }
   }
 
   ~OpenDRTEffect() override {
@@ -2358,11 +2394,13 @@ void render(const OFX::RenderArguments& args) override {
     std::unique_ptr<OFX::Image> dst(dstClip_->fetchImage(args.time));
 
     if (!src || !dst) {
+      LSP_OPENDRT_LOG_ERROR("render_fetch_image_null");
       OFX::throwSuiteStatusException(kOfxStatFailed);
     }
 
     if (src->getPixelDepth() != OFX::eBitDepthFloat || dst->getPixelDepth() != OFX::eBitDepthFloat ||
         src->getPixelComponents() != OFX::ePixelComponentRGBA || dst->getPixelComponents() != OFX::ePixelComponentRGBA) {
+      LSP_OPENDRT_LOG_ERROR("render_requires_float_rgba");
       OFX::throwSuiteStatusException(kOfxStatErrUnsupported);
     }
 
@@ -3066,22 +3104,25 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
       }
 
       // Support actions are side-effect free for grading state.
-      if (paramName == "supportHelp") {
+      if (openDrtParamLeafIs(paramName, "supportHelp")) {
         (void)openExternalUrl("https://github.com/Lo1s-pgn/Simple-Open-DRT#readme");
         return;
       }
 
-      if (paramName == "supportOpenLog") {
-        (void)openExternalUrl(std::string("file://") + (userPresetDirPath() / "perf.log").string());
+      if (openDrtParamLeafIs(paramName, "supportOpenLog")) {
+        LSPOpenDRTLog::ensureLogFileExists();
+        const std::string logPath = LSPOpenDRTLog::getLogPath();
+        if (!openExternalUrl(logPath))
+          LSP_OPENDRT_LOG_ERROR("open_log_failed");
         return;
       }
 
-      if (paramName == "supportReportIssue") {
+      if (openDrtParamLeafIs(paramName, "supportReportIssue")) {
         (void)openExternalUrl("https://github.com/Lo1s-pgn/Simple-Open-DRT/issues");
         return;
       }
 
-      if (paramName == "supportOpenDrtRepo") {
+      if (openDrtParamLeafIs(paramName, "supportOpenDrtRepo")) {
         (void)openExternalUrl("https://github.com/jedypod/open-display-transform");
         return;
       }
@@ -6221,6 +6262,7 @@ void describeInContext(OFX::ImageEffectDescriptor& d, OFX::ContextEnum) override
 
     auto* supportOpenLog = d.definePushButtonParam("supportOpenLog");
     supportOpenLog->setLabel("Open Log");
+    supportOpenLog->setHint("Open OpenDRT.log in the LSP application support folder (see plug-in documentation for OS paths).");
     supportOpenLog->setParent(*grpSupportRoot);
 
     auto* supportReportIssue = d.definePushButtonParam("supportReportIssue");
