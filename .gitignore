@@ -1,0 +1,40 @@
+.DS_Store
+Thumbs.db
+
+# Local IDE/cache
+.vs/
+**/.vs/
+*.suo
+*.user
+*.sdf
+*.opensdf
+
+# Build output
+**/build/
+**/build-*/
+**/build-ninja/
+**/bundle/
+**/out/
+**/cmake-build-*/
+
+# Local mirror docs we do not publish from this repo
+source/docs/*
+!source/docs/ARCHITECTURE.md
+
+# Local mirror installer artifacts we do not publish from this repo
+source/installer/*.exe
+
+# Release bundles and local packages
+release/
+CHANGELOG.md
+*.zip
+*.tar.gz
+
+# Local tooling scaffolding
+tools/make_release.sh
+scripts/
+
+# macOS metadata
+**/.AppleDouble
+**/._*
+
