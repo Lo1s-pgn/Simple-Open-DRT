@@ -55,7 +55,7 @@ extern char** environ;
 #define kPluginIdentifier "com.lsp.simple_open_drt"
 #define kPluginVersionMajor 1
 #define kPluginVersionMinor 1
-#define kPluginVersionString "1.1.1"
+#define kPluginVersionString "1.1.2"
 
 namespace {
 
@@ -2387,8 +2387,10 @@ class OpenDRTEffect : public OFX::ImageEffect {
   // Rule: keep preset/file management out of this path for predictable playback.
   // Render stage map: (1) validate clips/layout, (2) resolve params, (3) pick backend, (4) optional viewer cloud publish.
 void render(const OFX::RenderArguments& args) override {
+    RenderUiFence renderUiFenceGuard(*this);
     const auto tRenderStart = std::chrono::steady_clock::now();
-    updateToggleVisibility(args.time);
+    // Never call updateToggleVisibility/setParamEnabled from render: Resolve may render on worker threads
+    // while changedParam runs concurrently; hostRenderDepth_ blocks host UI mutations for all threads.
     refreshCubeViewerRuntimeStateRenderSafe();
     std::unique_ptr<OFX::Image> src(srcClip_->fetchImage(args.time));
     std::unique_ptr<OFX::Image> dst(dstClip_->fetchImage(args.time));
@@ -2756,8 +2758,21 @@ void render(const OFX::RenderArguments& args) override {
   }
 
   void syncPrivateData() override {
+    // Resolve can invoke syncPrivateData while a render is in flight (or from a context that races render workers).
+    // Never touch OFX param UI (visibility, presetState, labels) until render() has released RenderUiFence.
+    if (hostRenderDepth_.load(std::memory_order_acquire) != 0) {
+      return;
+    }
     refreshCubeViewerConnectionHealth();
     flushPendingCubeViewerStatusLabel();
+    if (deferredHostUiFlush_.exchange(false, std::memory_order_acq_rel)) {
+      try {
+        const double t = timeLineGetTime();
+        updateToggleVisibility(t);
+        updatePresetStateFromCurrent(t);
+      } catch (...) {
+      }
+    }
   }
 
   // ===== UI Event Entry =====
@@ -3649,6 +3664,21 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
     bool& flag;
   };
 
+  /** Raised for the lifetime of render(): forbids host param UI mutations from any thread while a render is in flight. */
+  struct RenderUiFence {
+    explicit RenderUiFence(OpenDRTEffect& e) : self(e) {
+      self.hostRenderDepth_.fetch_add(1, std::memory_order_acq_rel);
+    }
+    ~RenderUiFence() { self.hostRenderDepth_.fetch_sub(1, std::memory_order_acq_rel); }
+
+   private:
+    OpenDRTEffect& self;
+  };
+
+  bool uiHostParamWritesSafeNow() const noexcept {
+    return allowUiParamWrites_ && (hostRenderDepth_.load(std::memory_order_acquire) == 0);
+  }
+
   struct CachedCubeViewerInputCloud {
     bool valid = false;
     std::string points;
@@ -4098,6 +4128,10 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
   }
 
   void updatePresetStateFromCurrent(double time) {
+    if (!uiHostParamWritesSafeNow()) {
+      deferredHostUiFlush_.store(true, std::memory_order_release);
+      return;
+    }
     bool tonescaleClean = true;
     bool creativeWhiteClean = true;
     bool displayEncodingClean = true;
@@ -4440,6 +4474,8 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
   // Manager actions are enabled only when current look or tonescale points to a user preset.
   // Export buttons are always enabled; they export current effective values.
   void updatePresetManagerActionState(double t) {
+    if (!uiHostParamWritesSafeNow())
+      return;
     const int lookIdx = getChoice("lookPreset", t, 0);
     const int toneIdx = getChoice("tonescalePreset", t, 0);
     const bool hasUserLook = isUserLookPresetIndex(lookIdx);
@@ -4453,6 +4489,8 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
   }
 
   void setParamVisible(const char* name, bool visible) {
+    if (!uiHostParamWritesSafeNow())
+      return;
     try {
       if (auto* p = fetchGroupParam(name)) { p->setIsSecret(!visible); p->setEnabled(visible); return; }
       if (auto* p = fetchDoubleParam(name)) { p->setIsSecret(!visible); p->setEnabled(visible); return; }
@@ -4465,6 +4503,8 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
   }
 
   void setParamEnabledOnly(const char* name, bool enabled) {
+    if (!uiHostParamWritesSafeNow())
+      return;
     try {
       if (auto* p = fetchDoubleParam(name)) { p->setEnabled(enabled); return; }
       if (auto* p = fetchBooleanParam(name)) { p->setEnabled(enabled); return; }
@@ -4480,6 +4520,10 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
   // Advanced toggle visibility updater.
   // Uses a small cache to avoid calling setIsSecret/setEnabled unless a driving toggle changed.
   void updateToggleVisibility(double t) {
+    if (!uiHostParamWritesSafeNow()) {
+      deferredHostUiFlush_.store(true, std::memory_order_release);
+      return;
+    }
     const bool whitePoint = getBool("wp_enable", t, 1) != 0;
     const bool toneGroup = getBool("tn_enable", t, 1) != 0;
     const bool renderGroup = getBool("rs_enable", t, 1) != 0;
@@ -4673,12 +4717,14 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
       cubeViewerStatusPending_ = status;
       cubeViewerStatusDirty_ = true;
     }
-    if (!allowUiParamWrites_) return;
+    if (!uiHostParamWritesSafeNow())
+      return;
     setParamSetNeedsSyncing();
   }
 
   void flushPendingCubeViewerStatusLabel() {
-    if (!allowUiParamWrites_) return;
+    if (!uiHostParamWritesSafeNow())
+      return;
     std::string status;
     {
       std::lock_guard<std::mutex> lock(cubeViewerStatusMutex_);
@@ -5788,6 +5834,8 @@ void closeCubeViewerSession() {
   bool cubeViewerPendingCloudIsFirstHandoff_ = false;
   std::atomic<bool> cubeViewerInputCloudHandoffQueued_{false};
   bool allowUiParamWrites_ = true;
+  std::atomic<int> hostRenderDepth_{0};
+  std::atomic<bool> deferredHostUiFlush_{false};
   std::string cubeViewerLastParam_;
   std::chrono::steady_clock::time_point cubeViewerLastSendAt_ = std::chrono::steady_clock::time_point::min();
   std::chrono::steady_clock::time_point cubeViewerLastHeartbeatAt_ = std::chrono::steady_clock::time_point::min();

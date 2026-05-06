@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(Simple_Open_DRT VERSION 1.1.1 LANGUAGES CXX)
-set(OPENDRT_DISPLAY_VERSION "1.1.1")
+project(Simple_Open_DRT VERSION 1.1.2 LANGUAGES CXX)
+set(OPENDRT_DISPLAY_VERSION "1.1.2")
 
 set(PLUGIN_BASENAME "LSP_Simple_Open_DRT_${OPENDRT_DISPLAY_VERSION}")
 set(PLUGIN_IDENTIFIER "com.lsp.simple_open_drt")
