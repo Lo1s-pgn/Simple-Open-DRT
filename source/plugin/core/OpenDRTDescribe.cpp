@@ -114,11 +114,6 @@ void describeOpenDRTInContext(
   auto* cwpLm = addDouble("cwp_lm", "Creative White Limit", 0.25, 0.0, 1.0);
   cwpPreset->setParent(*grpWhitePoint);
   cwpLm->setParent(*grpWhitePoint);
-  auto* overlay = d.defineBooleanParam("crv_enable");
-  overlay->setLabel("Tonescale Overlay");
-  overlay->setDefault(false);
-  overlay->setIsSecret(true);
-  overlay->setEnabled(false);
   auto* grpTone = d.defineGroupParam("grp_tonescale"); grpTone->setLabel("Tonescale"); grpTone->setOpen(false); grpTone->setParent(*grpAdvancedRoot);
   auto* grpRender = d.defineGroupParam("grp_render"); grpRender->setLabel("Render Space"); grpRender->setOpen(false); grpRender->setParent(*grpAdvancedRoot);
   auto* grpMidPurity = d.defineGroupParam("grp_mid_purity"); grpMidPurity->setLabel("Mid Purity"); grpMidPurity->setOpen(false); grpMidPurity->setParent(*grpAdvancedRoot);
@@ -139,6 +134,8 @@ void describeOpenDRTInContext(
   addAdvC("tn_su","Surround",1,{"Dark","Dim","Bright"},grpDisplay);
   addAdvBool("clamp","Clamp",true,grpDisplay);
 
+  grpPresetSelection->setParent(*grpBasicRoot);
+
   auto* tnEnable = d.defineBooleanParam("tn_enable");
   tnEnable->setLabel("Enable");
   tnEnable->setDefault(true);
@@ -147,6 +144,11 @@ void describeOpenDRTInContext(
   auto* resetTonescale = d.definePushButtonParam("reset_tonescale");
   resetTonescale->setLabel("Reset");
   resetTonescale->setParent(*grpTone);
+  auto* overlay = d.defineBooleanParam("crv_enable");
+  overlay->setLabel("Tonescale Overlay");
+  overlay->setDefault(false);
+  if (const char* hint = hintFor("crv_enable")) overlay->setHint(hint);
+  overlay->setParent(*grpTone);
   addAdvD("tn_con","Contrast",1.66,1.0,2.0,grpTone);
   addAdvD("tn_sh","Shoulder Clip",0.5,0.0,1.0,grpTone);
   addAdvD("tn_toe","Toe",0.003,0.0,0.1,grpTone);
@@ -271,6 +273,7 @@ void describeOpenDRTInContext(
   auto* grpSupportRoot = d.defineGroupParam("grp_support_root");
   grpSupportRoot->setLabel("SUPPORT");
   grpSupportRoot->setOpen(false);
+  grpSupportRoot->setParent(*grpBasicRoot);
 
   auto* creditsLabel1 = d.defineStringParam("creditsLabel1");
   creditsLabel1->setLabel("Credits 1");
@@ -281,7 +284,7 @@ void describeOpenDRTInContext(
 
   auto* creditsLabel2 = d.defineStringParam("creditsLabel2");
   creditsLabel2->setLabel("Credits 2");
-  creditsLabel2->setDefault("OFX by Lois Plagnard");
+  creditsLabel2->setDefault("OFX by Loïs Plagnard");
   creditsLabel2->setStringType(OFX::eStringTypeLabel);
   creditsLabel2->setEnabled(false);
   creditsLabel2->setParent(*grpSupportRoot);
@@ -306,6 +309,6 @@ void describeOpenDRTInContext(
   supportReportIssue->setParent(*grpSupportRoot);
 
   auto* supportOpenDrtRepo = d.definePushButtonParam("supportOpenDrtRepo");
-  supportOpenDrtRepo->setLabel("Open DRT Repo");
+  supportOpenDrtRepo->setLabel("OpenDRT");
   supportOpenDrtRepo->setParent(*grpSupportRoot);
 }

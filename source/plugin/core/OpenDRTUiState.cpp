@@ -79,7 +79,8 @@ const char* openDrtTooltipForParam(const std::string& name) {
     {"tn_su", "Surround compensation mode (dark, dim, bright)."},
     {"display_gamut", "Target display gamut (typically Rec.709 for SDR or Rec.2020/P3 for HDR)."},
     {"eotf", "Target display transfer function (Linear, power, PQ, or HLG)."},
-    {"crv_enable", "Draw tonescale overlay for curve debugging/inspection."},
+    {"crv_enable",
+     "Draws a visualization of the tonescale curve — semi-log plot over roughly -0.005 to 128, with display encoding applied."},
   };
   auto it = kTooltips.find(name);
   return it == kTooltips.end() ? nullptr : it->second;
