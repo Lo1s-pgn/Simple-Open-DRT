@@ -1,6 +1,6 @@
 # Simple Open DRT (OFX)
 
-This is a port as OFX plugin of [OpenDRT by Jed Smith](https://github.com/jedypod/open-display-transform), with a simplified UI, combined preset workflow, and cross-platform GPU/CPU render paths and a refactored codebase.
+This is a port into an OFX plugin of [OpenDRT by Jed Smith](https://github.com/jedypod/open-display-transform), with a simplified UI, combined preset workflow, cross-platform GPU/CPU render paths and a refactored codebase.
 
 Current version: `1.1.7`
 
