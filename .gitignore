@@ -32,6 +32,9 @@ CHANGELOG.md
 
 # Local tooling scaffolding
 tools/make_release.sh
+/scripts/
+/tools/
+
 
 # macOS metadata
 **/.AppleDouble
