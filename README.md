@@ -66,17 +66,6 @@ cmake --build build --config Release
 
 - `release/LSP_Simple_Open_DRT_<version>.ofx.bundle`
 
-## Release Archive Workflow
-
-From repository root:
-
-```bash
-./archive_version.sh
-make clean && make
-```
-
-This updates `VERSION`, syncs `source/CMakeLists.txt`, `OpenDRTConstants.h`, `OpenDRTEffect.cpp` (plugin display string), `OpenDRTPresets.h` (`kOpenDRTPortVersion`), root `README.md` (`Current version`), and rebuilds the release bundle.
-
 ## Installation
 
 Copy `LSP_Simple_Open_DRT_<version>.ofx.bundle` to the OFX plugin directory:
