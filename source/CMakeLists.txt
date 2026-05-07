@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(Simple_Open_DRT VERSION 1.1.2 LANGUAGES CXX)
-set(OPENDRT_DISPLAY_VERSION "1.1.2")
+project(Simple_Open_DRT VERSION 1.1.7 LANGUAGES CXX)
+set(OPENDRT_DISPLAY_VERSION "1.1.7")
 
 set(PLUGIN_BASENAME "LSP_Simple_Open_DRT_${OPENDRT_DISPLAY_VERSION}")
 set(PLUGIN_IDENTIFIER "com.lsp.simple_open_drt")
@@ -24,6 +24,16 @@ set(OFX_SUPPORT_SOURCES
 
 set(PLUGIN_SOURCES
   plugin/core/OpenDRT.cpp
+  plugin/core/OpenDRTEffect.cpp
+  plugin/core/OpenDRTRuntimeEnv.cpp
+  plugin/core/OpenDRTDescribe.cpp
+  plugin/core/OpenDRTInterop.cpp
+  plugin/core/OpenDRTLookSections.cpp
+  plugin/core/OpenDRTParamRouter.cpp
+  plugin/core/OpenDRTPresetMenus.cpp
+  plugin/core/OpenDRTPlatform.cpp
+  plugin/core/OpenDRTRender.cpp
+  plugin/core/OpenDRTUiState.cpp
   ${OFX_SUPPORT_SOURCES}
 )
 

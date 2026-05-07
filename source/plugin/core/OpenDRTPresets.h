@@ -94,9 +94,6 @@ struct OpenDRTRawValues {
   int tn_su;
   int display_gamut;
   int eotf;
-  int cubeViewerPlotInLinear;
-  int cubeViewerShowOverflow;
-  int cubeViewerHighlightOverflow;
 };
 
 struct LookPresetValues {
@@ -140,6 +137,8 @@ inline void setIntIfPresent(OFX::ImageEffect& fx, const char* name, int v);
 inline void setBoolIfPresent(OFX::ImageEffect& fx, const char* name, bool v);
 inline void setDoubleIfPresent(OFX::ImageEffect& fx, const char* name, double v);
 inline void setStringIfPresent(OFX::ImageEffect& fx, const char* name, const std::string& v);
+inline void writeLookValuesToParams(const LookPresetValues& s, OFX::ImageEffect& fx);
+inline void writeTonescaleValuesToParams(const TonescalePresetValues& t, OFX::ImageEffect& fx);
 
 static constexpr std::array<const char*, 8> kLookPresetNames = {
   "Standard", "Arriba", "Sylvan", "Colorful", "Aery", "Dystopic", "Umbra", "Base"
@@ -157,7 +156,7 @@ static constexpr std::array<const char*, 13> kTonescalePresetNames = {
   "ACES-1.x", "ACES-2.0", "Marvelous Tonescape", "DaGrinchi ToneGroan"
 };
 
-static constexpr const char* kOpenDRTPortVersion = "1.1.1";
+static constexpr const char* kOpenDRTPortVersion = "1.1.7";
 static constexpr int kOpenDRTBuildNumber = 16;
 
 // Look preset table order must match kLookPresetNames and UI choice indices.
@@ -205,10 +204,6 @@ inline std::string presetLabelForClean(int presetIndex) {
   return std::string(currentPresetName(presetIndex)) + " | " + buildLabelText();
 }
 
-inline std::string presetLabelForCustom(int presetIndex) {
-  return std::string("Custom (") + currentPresetName(presetIndex) + ") | " + buildLabelText();
-}
-
 inline const char* whitepointNameFromCwp(int cwp) {
   switch (cwp) {
     case 0: return "D93";
@@ -232,20 +227,6 @@ inline std::string baseWhitepointLabelForLook(int presetIndex) {
   const int idx = (presetIndex < 0 || presetIndex >= static_cast<int>(kLookPresets.size())) ? 0 : presetIndex;
   const int cwp = kLookPresets[static_cast<size_t>(idx)].cwp;
   return std::string(whitepointNameFromCwp(cwp));
-}
-
-inline std::string effectiveTonescaleLabel(int lookPresetIndex, int tonescalePresetIndex, bool custom) {
-  std::string base = (tonescalePresetIndex < 0 || tonescalePresetIndex >= static_cast<int>(kTonescalePresetNames.size()))
-      ? baseTonescaleLabelForLook(lookPresetIndex)
-      : std::string(kTonescalePresetNames[static_cast<size_t>(tonescalePresetIndex)]);
-  return custom ? (std::string("Custom (") + base + ")") : base;
-}
-
-inline std::string effectiveWhitepointLabel(int lookPresetIndex, int creativeWhitePresetIndex) {
-  if (creativeWhitePresetIndex < 0) {
-    return baseWhitepointLabelForLook(lookPresetIndex);
-  }
-  return whitepointNameFromCwp(creativeWhitePresetIndex);
 }
 
 inline const char* surroundNameFromIndex(int tn_su) {
@@ -306,19 +287,8 @@ inline void applyDisplayEncodingPreset(OpenDRTParams& p, int preset) {
 
 // OFX-param writers used when a preset is explicitly chosen in the UI.
 inline void writeTonescalePresetToParams(int tonescalePresetIndex, OFX::ImageEffect& fx) {
-  if (tonescalePresetIndex < 0 || tonescalePresetIndex >= 13) return;
-  const TonescalePresetValues& t = kTonescalePresets[static_cast<size_t>(tonescalePresetIndex)];
-  setDoubleIfPresent(fx, "tn_con", t.tn_con);
-  setDoubleIfPresent(fx, "tn_sh", t.tn_sh);
-  setDoubleIfPresent(fx, "tn_toe", t.tn_toe);
-  setDoubleIfPresent(fx, "tn_off", t.tn_off);
-  setBoolIfPresent(fx, "tn_hcon_enable", t.tn_hcon_enable != 0);
-  setDoubleIfPresent(fx, "tn_hcon", t.tn_hcon);
-  setDoubleIfPresent(fx, "tn_hcon_pv", t.tn_hcon_pv);
-  setDoubleIfPresent(fx, "tn_hcon_st", t.tn_hcon_st);
-  setBoolIfPresent(fx, "tn_lcon_enable", t.tn_lcon_enable != 0);
-  setDoubleIfPresent(fx, "tn_lcon", t.tn_lcon);
-  setDoubleIfPresent(fx, "tn_lcon_w", t.tn_lcon_w);
+  if (tonescalePresetIndex < 0 || tonescalePresetIndex >= static_cast<int>(kTonescalePresets.size())) return;
+  writeTonescaleValuesToParams(kTonescalePresets[static_cast<size_t>(tonescalePresetIndex)], fx);
 }
 
 inline void writeCreativeWhitePresetToParams(int creativeWhitePresetIndex, OFX::ImageEffect& fx) {
@@ -463,11 +433,21 @@ inline void setStringIfPresent(OFX::ImageEffect& fx, const char* name, const std
   }
 }
 
-inline void writePresetToParams(int presetIndex, OFX::ImageEffect& fx) {
-  // Preset selection is authoritative: overwrite all affected controls.
-  const int idx = (presetIndex < 0 || presetIndex >= static_cast<int>(kLookPresets.size())) ? 0 : presetIndex;
-  const LookPresetValues& s = kLookPresets[static_cast<size_t>(idx)];
+inline void writeTonescaleValuesToParams(const TonescalePresetValues& t, OFX::ImageEffect& fx) {
+  setDoubleIfPresent(fx, "tn_con", t.tn_con);
+  setDoubleIfPresent(fx, "tn_sh", t.tn_sh);
+  setDoubleIfPresent(fx, "tn_toe", t.tn_toe);
+  setDoubleIfPresent(fx, "tn_off", t.tn_off);
+  setBoolIfPresent(fx, "tn_hcon_enable", t.tn_hcon_enable != 0);
+  setDoubleIfPresent(fx, "tn_hcon", t.tn_hcon);
+  setDoubleIfPresent(fx, "tn_hcon_pv", t.tn_hcon_pv);
+  setDoubleIfPresent(fx, "tn_hcon_st", t.tn_hcon_st);
+  setBoolIfPresent(fx, "tn_lcon_enable", t.tn_lcon_enable != 0);
+  setDoubleIfPresent(fx, "tn_lcon", t.tn_lcon);
+  setDoubleIfPresent(fx, "tn_lcon_w", t.tn_lcon_w);
+}
 
+inline void writeLookValuesToParams(const LookPresetValues& s, OFX::ImageEffect& fx) {
   setDoubleIfPresent(fx, "tn_con", s.tn_con);
   setDoubleIfPresent(fx, "tn_sh", s.tn_sh);
   setDoubleIfPresent(fx, "tn_toe", s.tn_toe);
@@ -537,6 +517,13 @@ inline void writePresetToParams(int presetIndex, OFX::ImageEffect& fx) {
 
   setIntIfPresent(fx, "cwp", s.cwp);
   setDoubleIfPresent(fx, "cwp_lm", s.cwp_lm);
+}
+
+inline void writePresetToParams(int presetIndex, OFX::ImageEffect& fx) {
+  // Preset selection is authoritative: overwrite all affected controls.
+  const int idx = (presetIndex < 0 || presetIndex >= static_cast<int>(kLookPresets.size())) ? 0 : presetIndex;
+  const LookPresetValues& s = kLookPresets[static_cast<size_t>(idx)];
+  writeLookValuesToParams(s, fx);
 
   setIntIfPresent(fx, "presetState", 0);
   setStringIfPresent(fx, "presetLabel", presetLabelForClean(idx));

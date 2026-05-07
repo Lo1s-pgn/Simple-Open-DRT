@@ -65,29 +65,8 @@ extern "C" void launchOpenDRTKernelPitched(
 
 class OpenDRTProcessor {
  public:
-  enum class RuntimeBackend {
-    CPU,
-    CUDA,
-    OpenCL,
-    Metal
-  };
-
   explicit OpenDRTProcessor(const OpenDRTParams& params) : params_(params) { initRuntimeFlags(); }
   void setParams(const OpenDRTParams& params) { params_ = params; }
-  RuntimeBackend lastBackendUsed() const { return lastBackend_; }
-  const char* lastBackendLabel() const {
-    switch (lastBackend_) {
-      case RuntimeBackend::CUDA:
-        return "cuda";
-      case RuntimeBackend::OpenCL:
-        return "opencl";
-      case RuntimeBackend::Metal:
-        return "metal";
-      case RuntimeBackend::CPU:
-      default:
-        return "cpu";
-    }
-  }
   ~OpenDRTProcessor() {
 #if defined(SIMPLE_OPENDRT_HAS_CUDA)
     releaseCudaStream();
@@ -99,22 +78,9 @@ class OpenDRTProcessor {
 #endif
   }
 
-  bool render(const float* src, float* dst, int width, int height, bool preferCuda, bool hostSupportsOpenCL) {
+  bool render(const float* src, float* dst, int width, int height, bool preferCuda) {
     const size_t packedRowBytes = static_cast<size_t>(width) * 4u * sizeof(float);
-    return renderWithLayout(src, dst, width, height, packedRowBytes, packedRowBytes, preferCuda, hostSupportsOpenCL);
-  }
-
-  bool renderCPUReference(
-      const float* src,
-      float* dst,
-      int width,
-      int height,
-      size_t srcRowBytes,
-      size_t dstRowBytes) {
-    computeDerivedParams();
-    (void)srcRowBytes;
-    (void)dstRowBytes;
-    return renderCPU(src, dst, width, height);
+    return renderWithLayout(src, dst, width, height, packedRowBytes, packedRowBytes, preferCuda);
   }
 
   bool renderWithLayout(
@@ -124,9 +90,7 @@ class OpenDRTProcessor {
       int height,
       size_t srcRowBytes,
       size_t dstRowBytes,
-      bool preferCuda,
-      bool hostSupportsOpenCL) {
-    (void)hostSupportsOpenCL;
+      bool preferCuda) {
     // Derived values are computed once per frame on host and consumed by all backends.
     // This is a parity + performance guardrail (avoid per-pixel recompute drift).
     computeDerivedParams();
@@ -246,7 +210,6 @@ class OpenDRTProcessor {
     }
     if (evStart) cudaEventDestroy(evStart);
     if (evAfterKernel) cudaEventDestroy(evAfterKernel);
-    lastBackend_ = RuntimeBackend::CUDA;
     perfLogStage("CUDA host render", t0);
     return true;
   }
@@ -402,7 +365,6 @@ class OpenDRTProcessor {
     if (evAfterKernel) cudaEventDestroy(evAfterKernel);
     if (evAfterD2H) cudaEventDestroy(evAfterD2H);
 
-    lastBackend_ = RuntimeBackend::CUDA;
     perfLogStage("CUDA render", t0);
 
     return true;
@@ -420,7 +382,6 @@ class OpenDRTProcessor {
       size_t dstRowBytes) {
     const auto t0 = std::chrono::steady_clock::now();
     const bool ok = OpenDRTMetal::render(src, dst, width, height, srcRowBytes, dstRowBytes, params_, derived_);
-    if (ok) lastBackend_ = RuntimeBackend::Metal;
     perfLogStage("Metal render", t0);
     return ok;
   }
@@ -448,43 +409,6 @@ class OpenDRTProcessor {
         params_,
         derived_,
         metalCommandQueue);
-    if (ok) lastBackend_ = RuntimeBackend::Metal;
-    perfLogStage("Metal host render", t0);
-    return ok;
-  }
-
-  bool renderMetalHostBuffersReadback(
-      const void* srcMetalBuffer,
-      void* dstMetalBuffer,
-      int width,
-      int height,
-      size_t srcRowBytes,
-      size_t dstRowBytes,
-      int originX,
-      int originY,
-      void* metalCommandQueue,
-      float* readbackSrc,
-      size_t readbackSrcRowBytes,
-      float* readbackDst,
-      size_t readbackDstRowBytes) {
-    const auto t0 = std::chrono::steady_clock::now();
-    const bool ok = OpenDRTMetal::renderHostReadback(
-        srcMetalBuffer,
-        dstMetalBuffer,
-        width,
-        height,
-        srcRowBytes,
-        dstRowBytes,
-        originX,
-        originY,
-        params_,
-        derived_,
-        metalCommandQueue,
-        readbackSrc,
-        readbackSrcRowBytes,
-        readbackDst,
-        readbackDstRowBytes);
-    if (ok) lastBackend_ = RuntimeBackend::Metal;
     perfLogStage("Metal host render", t0);
     return ok;
   }
@@ -597,7 +521,6 @@ class OpenDRTProcessor {
     perfLogStage("OpenCL D2H", tD2H);
 
     if (clFinish(clQueue_) != CL_SUCCESS) return false;
-    lastBackend_ = RuntimeBackend::OpenCL;
     perfLogStage("OpenCL render", t0);
     return true;
 #endif
@@ -607,7 +530,6 @@ class OpenDRTProcessor {
     // CPU fallback now runs the same resolved transform model used by the GPU paths.
     // This preserves viewer usefulness in SIMPLE_OPENDRT_VIEWER_CPU_ONLY mode and makes
     // plugin CPU fallback visually meaningful instead of pass-through.
-    lastBackend_ = RuntimeBackend::CPU;
     OpenDRTCPU::transformBuffer(src, dst, width, height, params_, derived_);
     return true;
   }
@@ -1111,7 +1033,6 @@ class OpenDRTProcessor {
   bool debugLogEnabled_ = false;
   bool perfLogEnabled_ = false;
   bool disableDerivedEnabled_ = false;
-  RuntimeBackend lastBackend_ = RuntimeBackend::CPU;
 #if defined(SIMPLE_OPENDRT_HAS_CUDA)
   // CUDA feature flags and cached device/runtime state.
   bool cudaLegacySyncEnabled_ = false;
