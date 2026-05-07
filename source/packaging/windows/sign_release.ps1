@@ -2,11 +2,11 @@
 $ErrorActionPreference = "Stop"
 
 $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe"
-$sourceRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$version = Get-Content (Join-Path $sourceRoot "VERSION") | Select-Object -First 1
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+$version = Get-Content (Join-Path $repoRoot "VERSION") | Select-Object -First 1
 $version = $version.Trim().Split(" ")[0]
 $stem = "LSP_Simple_Open_DRT_$version"
-$plugin = Join-Path $sourceRoot "release\$stem.ofx.bundle\Contents\Win64\$stem.ofx"
+$plugin = Join-Path $repoRoot "release\$stem.ofx.bundle\Contents\Win64\$stem.ofx"
 $installer = Join-Path $PSScriptRoot "LSP_Simple_Open_DRT_v$version`_Windows_cuda_opencl_Installer.exe"
 $pfx = "$env:USERPROFILE\Desktop\LSP_Simple_Open_DRT_SelfSign.pfx"
 

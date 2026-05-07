@@ -1,4 +1,4 @@
-# `source/plugin/core` — technical overview
+# `source/plugin/core`
 
 Flat folder of shared C++/OFX code for **LSP - Simple Open DRT**. GPU backends are **not** here: `**../metal`**, `**../cuda**`, `**../opencl**`; `**OpenDRTProcessor.h**` picks the path and passes `**OpenDRTParams**` (from `**OpenDRTParams.h**`, also included by Metal/CUDA).
 

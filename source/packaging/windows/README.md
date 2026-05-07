@@ -8,11 +8,10 @@ This folder contains Windows release packaging assets:
 ## Build + Package flow
 
 1. Build the plugin in Release mode:
-   - Run `source/build_vc.bat`.
+   - Run **`source\scripts\windows\build_vc.bat`** (from anywhere; it resolves the repo root).
 2. Build installer with Inno Setup:
    - Open `LSP_Simple_Open_DRT.iss` in Inno Setup Compiler and compile.
-3. (Optional) Sign artifacts:
-   - Run `sign_release.ps1` in PowerShell.
+3. (Optional) Sign artifacts — run **`source\scripts\windows\sign_release.bat`** (launches **`sign_release.ps1`** in this folder).
 
 The installer installs into:
 

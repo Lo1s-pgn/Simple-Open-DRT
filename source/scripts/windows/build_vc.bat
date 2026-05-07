@@ -1,7 +1,8 @@
 @echo off
 setlocal
 
-for %%I in ("%~dp0\..") do set "ROOT=%%~fI"
+REM Repo root: .../source/scripts/windows -> ../../../
+for %%I in ("%~dp0..\..\..") do set "ROOT=%%~fI"
 set "BUILD_DIR=%ROOT%\build"
 set "CMAKE_EXE=cmake"
 for /f "tokens=1" %%V in (%ROOT%\VERSION) do set "VERSION=%%V"

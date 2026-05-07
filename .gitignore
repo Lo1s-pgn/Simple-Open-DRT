@@ -22,7 +22,7 @@ source/docs/*
 !source/docs/ARCHITECTURE.md
 
 # Local mirror installer artifacts we do not publish from this repo
-source/installer/*.exe
+source/packaging/windows/*.exe
 
 # Release bundles and local packages
 release/
@@ -32,7 +32,6 @@ CHANGELOG.md
 
 # Local tooling scaffolding
 tools/make_release.sh
-scripts/
 
 # macOS metadata
 **/.AppleDouble

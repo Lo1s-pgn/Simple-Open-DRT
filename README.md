@@ -8,6 +8,8 @@ Per-release notes: [CHANGELOG.md](CHANGELOG.md).
 
 Core plugin layout overview: [source/plugin/core/README.md](source/plugin/core/README.md).
 
+CMake project root and `source/` layout: [source/README.md](source/README.md).
+
 ## Platform
 
 - Windows (x86_64): CUDA + OpenCL + CPU
@@ -52,7 +54,7 @@ cmake --build build --config Release
 Recommended helper script:
 
 ```bat
-source\build_vc.bat
+source\scripts\windows\build_vc.bat
 ```
 
 Manual CMake/Ninja equivalent (Developer Command Prompt):
