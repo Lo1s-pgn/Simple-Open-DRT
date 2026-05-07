@@ -2,7 +2,7 @@
 
 This is a port into an OFX plugin of [OpenDRT by Jed Smith](https://github.com/jedypod/open-display-transform), with a simplified UI, combined preset workflow, cross-platform GPU/CPU render paths and a refactored codebase.
 
-Current version: `1.1.7`
+Current OpenDRT version: `1.1.0`
 
 Per-release notes: [CHANGELOG.md](CHANGELOG.md).
 
