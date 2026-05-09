@@ -4,12 +4,6 @@ This is a port into an OFX plugin of [OpenDRT by Jed Smith](https://github.com/j
 
 Current OpenDRT version: `1.1.0`
 
-Per-release notes: [CHANGELOG.md](CHANGELOG.md).
-
-Core plugin layout overview: [source/plugin/core/README.md](source/plugin/core/README.md).
-
-CMake project root and `source/` layout: [source/README.md](source/README.md).
-
 ## Platform
 
 - Windows (x86_64): CUDA + OpenCL + CPU
