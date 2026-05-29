@@ -92,24 +92,72 @@ This repo includes **Build OFX release** (`.github/workflows/build-ofx-release.y
 
 ## Installation
 
-Copy the bundle from **your platform’s release folder** into the OFX plugin directory:
+Copy the bundle from **your platform’s release folder** into the host OFX plug-ins directory, then restart DaVinci Resolve.
 
-- Windows: `C:\Program Files\Common Files\OFX\Plugins\`
-- macOS: `/Library/OFX/Plugins/`
-- Linux: `/usr/OFX/Plugins/`
+If the plug-in does not appear after an upgrade, quit Resolve and delete its OFX plug-in cache file (see paths below), then relaunch.
 
-Then restart Resolve.
+### macOS
 
-## macOS Gatekeeper
+Use the bundle inside **`release/LSP_Simple_Open_DRT_<version>_macos/`**. Copy it to:
 
-If the bundle is unsigned, run:
+- `/Library/OFX/Plugins/` (all users), or
+- `~/Library/OFX/Plugins/` (current user)
+
+**Resolve OFX cache (delete if needed):**  
+`~/Library/Application Support/Blackmagic Design/DaVinci Resolve/OFXPluginCacheV2.xml`
+
+### Windows
+
+Use the bundle inside **`release/LSP_Simple_Open_DRT_<version>_windows/`**. Copy it to:
+
+`C:\Program Files\Common Files\OFX\Plugins\`
+
+(Elevation required when writing under `Program Files`.)
+
+**Resolve OFX cache (delete if needed):**  
+`%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\OFXPluginCacheV2.xml`
+
+### Linux
+
+Use the bundle inside **`release/LSP_Simple_Open_DRT_<version>_linux/`**. Copy it to:
+
+`/usr/OFX/Plugins/`
+
+## macOS Gatekeeper (unsigned builds)
+
+Release builds are **not signed or notarized**. After you copy the bundle into an OFX folder, macOS may block it from loading in Resolve.
+
+### Method 1 — Terminal (recommended)
+
+Use the path where you actually installed the bundle. Example for the system folder:
 
 ```bash
-sudo chmod -R 755 /Library/OFX/Plugins/LSP_Simple_Open_DRT_<version>.ofx.bundle
-sudo chown -R root:wheel /Library/OFX/Plugins/LSP_Simple_Open_DRT_<version>.ofx.bundle
-sudo xattr -dr com.apple.quarantine /Library/OFX/Plugins/LSP_Simple_Open_DRT_<version>.ofx.bundle
-sudo codesign --force --deep --sign - /Library/OFX/Plugins/LSP_Simple_Open_DRT_<version>.ofx.bundle
+BUNDLE="/Library/OFX/Plugins/LSP_Simple_Open_DRT_<version>.ofx.bundle"
+
+sudo chmod -R 755 "$BUNDLE"
+sudo chown -R root:wheel "$BUNDLE"
+sudo xattr -dr com.apple.quarantine "$BUNDLE"
+sudo codesign --force --deep --sign - "$BUNDLE"
 ```
+
+For a **user-only** install (`~/Library/OFX/Plugins/...`), use that path in `BUNDLE` and **skip** the `chown root:wheel` line.
+
+When `sudo` asks for your password, type it and press **Enter** (nothing appears on screen — that is normal).
+
+Quit Resolve completely, then reopen it.
+
+### Method 2 — System Settings (no Terminal)
+
+1. Copy a fresh bundle into `/Library/OFX/Plugins/` (or `~/Library/OFX/Plugins/`).
+2. Launch Resolve. If macOS shows a security warning, click **Done**.
+3. Open **System Settings → Privacy & Security**, scroll down, and click **Allow Anyway** next to the blocked plug-in.
+4. In Resolve: **DaVinci Resolve → Preferences → Video Plugins**, find **LSP - Simple Open DRT**, enable it, save, and quit Resolve.
+5. Launch Resolve again. When prompted, click **Open Anyway** and enter your Mac password.
+
+### Notes
+
+- If your Mac account has **no login password**, the **Open Anyway** step may not work reliably — use Method 1 instead.
+- If still missing in Resolve, delete the OFX cache (path in [Installation](#installation) above) and relaunch.
 
 ## License
 
