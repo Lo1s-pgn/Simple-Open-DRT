@@ -1,5 +1,5 @@
 [Setup]
-#define PluginVersion "1.1.7"
+#define PluginVersion "1.1.8"
 #define PluginStem "LSP_Simple_Open_DRT_" + PluginVersion
 AppId={{9F3D3F6D-5D8B-4D16-A9A0-6A8D6F7E7A10}
 AppName=Simple_Open_DRT

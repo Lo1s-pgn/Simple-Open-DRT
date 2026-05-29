@@ -43,3 +43,12 @@ elseif(WIN32)
 elseif(UNIX)
   include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/OpenDRTLinux.cmake")
 endif()
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/scripts/archive_version.sh")
+  add_custom_target(opendrt_archive
+    COMMAND bash "${CMAKE_SOURCE_DIR}/scripts/archive_version.sh"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    USES_TERMINAL
+    COMMENT "Archive current version, bump VERSION, rebuild"
+  )
+endif()

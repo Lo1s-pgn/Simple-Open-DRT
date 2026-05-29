@@ -132,7 +132,7 @@ Release builds are **not signed or notarized**. After you copy the bundle into a
 Use the path where you actually installed the bundle. Example for the system folder:
 
 ```bash
-BUNDLE="/Library/OFX/Plugins/LSP_Simple_Open_DRT_<version>.ofx.bundle"
+BUNDLE="/Library/OFX/Plugins/LSP_Simple_Open_DRT_1.1.8.ofx.bundle"
 
 sudo chmod -R 755 "$BUNDLE"
 sudo chown -R root:wheel "$BUNDLE"
