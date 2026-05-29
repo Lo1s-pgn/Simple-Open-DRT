@@ -1,13 +1,9 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 
-#if defined(__linux__)
-std::string userPresetDirPath();
-#else
-#include <filesystem>
 std::filesystem::path userPresetDirPath();
-#endif
 
 std::string pickOpenXmlFilePath();
 std::string pickSaveXmlFilePath(const std::string& defaultName);

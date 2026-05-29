@@ -4,13 +4,6 @@
 #include <cstdlib>
 #include <string>
 
-#if defined(__linux__)
-std::string userPresetDirPath() {
-  const char* home = std::getenv("HOME");
-  if (home && *home) return std::string(home) + "/.config/Simple_Open_DRT";
-  return ".";
-}
-#else
 std::filesystem::path userPresetDirPath() {
 #ifdef _WIN32
   const char* base = std::getenv("APPDATA");
@@ -25,7 +18,6 @@ std::filesystem::path userPresetDirPath() {
 #endif
   return std::filesystem::path(".");
 }
-#endif
 
 #ifdef _WIN32
 #define NOMINMAX
