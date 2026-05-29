@@ -21,13 +21,29 @@ endif()
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -allow-unsupported-compiler")
 find_package(CUDAToolkit REQUIRED)
 
-set(OPENCL_LIB "${CUDAToolkit_LIBRARY_DIR}/OpenCL.lib")
-if(NOT EXISTS "${OPENCL_LIB}")
-  set(OPENCL_LIB "${CUDAToolkit_LIBRARY_ROOT}/lib/x64/OpenCL.lib")
+set(_opendrt_opencl_lib "")
+foreach(_opendrt_opencl_dir
+    "${CUDAToolkit_LIBRARY_DIR}"
+    "${CUDAToolkit_LIBRARY_ROOT}/lib/x64"
+    "${CUDAToolkit_ROOT_DIR}/lib/x64"
+  )
+  if(EXISTS "${_opendrt_opencl_dir}/OpenCL.lib")
+    set(_opendrt_opencl_lib "${_opendrt_opencl_dir}/OpenCL.lib")
+    break()
+  endif()
+endforeach()
+if(_opendrt_opencl_lib STREQUAL "" AND DEFINED ENV{CUDA_PATH})
+  if(EXISTS "$ENV{CUDA_PATH}/lib/x64/OpenCL.lib")
+    set(_opendrt_opencl_lib "$ENV{CUDA_PATH}/lib/x64/OpenCL.lib")
+  endif()
 endif()
-if(NOT EXISTS "${OPENCL_LIB}")
-  message(FATAL_ERROR "OpenCL.lib not found in CUDA Toolkit")
+if(_opendrt_opencl_lib STREQUAL "")
+  message(FATAL_ERROR
+    "OpenCL.lib not found in CUDA Toolkit. Install the CUDA opencl component "
+    "(CI: sub-packages [\"nvcc\", \"cudart\", \"opencl\"]).")
 endif()
+set(OPENCL_LIB "${_opendrt_opencl_lib}")
+message(STATUS "[OpenDRT] Windows OpenCL.lib: ${OPENCL_LIB}")
 
 set(OPENCL_KERNEL_SRC "${CMAKE_SOURCE_DIR}/plugin/opencl/OpenDRT.cl")
 set(OPENCL_KERNEL_GEN_SCRIPT "${CMAKE_SOURCE_DIR}/plugin/opencl/GenerateOpenDRTCLSource.cmake")

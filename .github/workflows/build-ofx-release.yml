@@ -73,7 +73,8 @@ jobs:
         with:
           cuda: "12.6.3"
           method: network
-          sub-packages: '["nvcc", "cudart"]'
+          # opencl required — CMake links OpenCL.lib from the CUDA toolkit on Windows.
+          sub-packages: '["nvcc", "cudart", "opencl"]'
 
       - name: Configure and build
         shell: pwsh
