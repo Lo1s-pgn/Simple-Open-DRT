@@ -14,6 +14,9 @@ concurrency:
   group: build-ofx-release-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-macos:
     name: macOS
@@ -66,7 +69,7 @@ jobs:
         run: echo "triplet=$(head -n1 VERSION | tr -d '\r' | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.35
+        uses: Jimver/cuda-toolkit@3d45d157f327c09c04b50ee6ccdea2d9d017ec76 # v0.2.35 (Node.js 24)
         with:
           cuda: "12.6.3"
           method: network
@@ -121,7 +124,7 @@ jobs:
           sudo apt-get install -y ninja-build g++ ocl-icd-opencl-dev
 
       - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.35
+        uses: Jimver/cuda-toolkit@3d45d157f327c09c04b50ee6ccdea2d9d017ec76 # v0.2.35 (Node.js 24)
         with:
           cuda: "12.6.3"
           method: network

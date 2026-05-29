@@ -92,15 +92,15 @@ void describeOpenDRTInContext(
   cwpHidden->setParent(*grpBasicRoot);
   auto* grpDisplay = d.defineGroupParam("grp_display"); grpDisplay->setLabel("Display Encoding"); grpDisplay->setOpen(false); grpDisplay->setParent(*grpBasicRoot);
   auto* grpPresetSelection = d.defineGroupParam("grp_preset_selection"); grpPresetSelection->setLabel("LOOK"); grpPresetSelection->setOpen(true);
+  auto* resetLookSettings = d.definePushButtonParam("reset_look_settings");
+  resetLookSettings->setLabel("Reset");
+  resetLookSettings->setParent(*grpPresetSelection);
   auto* lookPreset = addChoice("lookPreset", "DRT Look Preset", 0, {"Standard","Arriba","Sylvan","Colorful","Aery","Dystopic","Umbra","Base"});
   lookPreset->appendOption("(custom)");
   auto* tonescalePreset = addChoice("tonescalePreset", "Tonescale Preset", 1, {"Low Contrast","Medium Contrast","High Contrast","Arriba Tonescale","Sylvan Tonescale","Colorful Tonescale","Aery Tonescale","Dystopic Tonescale","Umbra Tonescale","ACES-1.x","ACES-2.0","Marvelous Tonescape","DaGrinchi ToneGroan"});
   tonescalePreset->appendOption("(custom)");
   lookPreset->setParent(*grpPresetSelection);
   tonescalePreset->setParent(*grpPresetSelection);
-  auto* resetLookSettings = d.definePushButtonParam("reset_look_settings");
-  resetLookSettings->setLabel("Reset");
-  resetLookSettings->setParent(*grpPresetSelection);
   auto* grpAdvancedRoot = d.defineGroupParam("grp_advanced_root"); grpAdvancedRoot->setLabel("Custom Look"); grpAdvancedRoot->setOpen(false); grpAdvancedRoot->setParent(*grpPresetSelection);
   auto* grpWhitePoint = d.defineGroupParam("grp_white_point"); grpWhitePoint->setLabel("White Point"); grpWhitePoint->setOpen(false); grpWhitePoint->setParent(*grpAdvancedRoot);
   auto* wpEnable = d.defineBooleanParam("wp_enable");

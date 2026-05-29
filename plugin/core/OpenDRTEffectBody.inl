@@ -330,16 +330,16 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
     if (!buildPresetBaseline(args.time, &expected)) return true;
     FlagScope scope(suppressParamChanged_);
     if (paramName == "reset_look_settings") {
+      constexpr int kDefaultLookPreset = 0;
+      constexpr int kDefaultTonescalePreset = 1;
+      setChoice("lookPreset", kDefaultLookPreset);
+      setChoice("tonescalePreset", kDefaultTonescalePreset);
+      writePresetToParams(kDefaultLookPreset, *this);
+      writeTonescalePresetToParams(kDefaultTonescalePreset, *this);
+      setChoice("creativeWhitePreset", std::max(0, std::min(5, getInt("cwp", args.time, 2))));
       setBool("tn_enable", true);
       setBool("rs_enable", true);
       setBool("wp_enable", true);
-      applyTonescaleFromBaseline(expected);
-      applyRenderSpaceFromBaseline(expected);
-      applyMidPurityFromBaseline(expected);
-      applyPurityCompressionFromBaseline(expected);
-      applyBrillianceFromBaseline(expected);
-      applyHueFromBaseline(expected);
-      OpenDRTLookSections::applyWhitePoint(*this, expected);
     } else if (paramName == "reset_tonescale") {
       setBool("tn_enable", true);
       applyTonescaleFromBaseline(expected);
