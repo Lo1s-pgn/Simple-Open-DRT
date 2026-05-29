@@ -10,19 +10,11 @@ Thumbs.db
 *.opensdf
 
 # Build output
-**/build/
-**/build-*/
-**/build-ninja/
-**/bundle/
-**/out/
-**/cmake-build-*/
-
-# Local mirror docs we do not publish from this repo
-source/docs/*
-!source/docs/ARCHITECTURE.md
-
-# Local mirror installer artifacts we do not publish from this repo
-source/packaging/windows/*.exe
+build/
+plugin/version_gen.h
+*.o
+*.ofx
+*.bundle/
 
 # Release bundles and local packages
 release/
@@ -30,13 +22,41 @@ CHANGELOG.md
 *.zip
 *.tar.gz
 
-# Local tooling scaffolding
+# Local maintainer scripts (not in repo)
+scripts/
 tools/make_release.sh
-/scripts/
-/tools/
 
+# Local mirror docs we do not publish from this repo
+source/docs/*
+!source/docs/ARCHITECTURE.md
 
-# macOS metadata
+# Local mirror installer artifacts we do not publish from this repo
+packaging/windows/*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+.Python
+venv/
+.venv/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Xcode / macOS
+xcode-build/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# Windows
+*.vcxproj.user
+
+# OS
 **/.AppleDouble
 **/._*
-

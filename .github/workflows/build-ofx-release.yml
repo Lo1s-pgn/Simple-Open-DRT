@@ -1,0 +1,149 @@
+# Manual release build only — does NOT run on push, tag, or local archive.
+# GitHub → Actions → "Build OFX release" → Run workflow → pick branch → Run workflow
+name: Build OFX release
+
+on:
+  workflow_dispatch:
+    inputs:
+      macos_universal:
+        description: macOS universal binary (arm64 + x86_64)
+        type: boolean
+        default: true
+
+concurrency:
+  group: build-ofx-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Read VERSION triplet
+        id: version
+        run: echo "triplet=$(head -n1 VERSION | tr -d '\r' | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Configure and build
+        run: |
+          set -euo pipefail
+          FAT=ON
+          if [ "${{ inputs.macos_universal }}" != "true" ]; then
+            FAT=OFF
+          fi
+          cmake -S . -B build/macos -DCMAKE_BUILD_TYPE=Release -DOPENDRT_OFX_FAT_ARCHS=${FAT}
+          cmake --build build/macos --target opendrt_all --parallel "$(sysctl -n hw.ncpu)"
+          test -d "release/LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_macos"
+
+      - name: Upload macOS release folder
+        uses: actions/upload-artifact@v6
+        with:
+          name: LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_macos
+          path: release/LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_macos/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: macOS artifact summary
+        if: success()
+        run: |
+          {
+            echo "### macOS build"
+            echo "Download artifact **LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_macos** from this run's **Artifacts** section (bottom of the page)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-windows:
+    name: Windows
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Read VERSION triplet
+        id: version
+        shell: bash
+        run: echo "triplet=$(head -n1 VERSION | tr -d '\r' | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.29
+        with:
+          cuda: "12.6.3"
+          method: network
+
+      - name: Configure and build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $triplet = '${{ steps.version.outputs.triplet }}'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) { throw 'Visual Studio with MSVC x64 tools not found' }
+          $vcvars = Join-Path $vsPath 'VC\Auxiliary\Build\vcvars64.bat'
+          $env:NVCC_PREPEND_FLAGS = '-allow-unsupported-compiler'
+          cmd /c "`"$vcvars`" && cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl && cmake --build build/windows --target opendrt_all --parallel"
+          $release = Join-Path 'release' "LSP_Simple_Open_DRT_${triplet}_windows"
+          if (-not (Test-Path $release)) { throw "Release folder not found: $release" }
+
+      - name: Upload Windows release folder
+        uses: actions/upload-artifact@v6
+        with:
+          name: LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_windows
+          path: release/LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_windows/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Windows artifact summary
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo "### Windows build"
+            echo "Download artifact **LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_windows** from this run's **Artifacts** section (bottom of the page)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Read VERSION triplet
+        id: version
+        run: echo "triplet=$(head -n1 VERSION | tr -d '\r' | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build ocl-icd-opencl-dev
+
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.29
+        with:
+          cuda: "12.6.3"
+          method: network
+
+      - name: Configure and build
+        run: |
+          set -euo pipefail
+          cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release -DSIMPLE_OPENDRT_LINUX_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES="75;86;89"
+          cmake --build build/linux --target opendrt_all --parallel "$(nproc)"
+          test -d "release/LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_linux"
+
+      - name: Upload Linux release folder
+        uses: actions/upload-artifact@v6
+        with:
+          name: LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_linux
+          path: release/LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_linux/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Linux artifact summary
+        if: success()
+        run: |
+          {
+            echo "### Linux build"
+            echo "Download artifact **LSP_Simple_Open_DRT_${{ steps.version.outputs.triplet }}_linux** from this run's **Artifacts** section (bottom of the page)."
+          } >> "$GITHUB_STEP_SUMMARY"

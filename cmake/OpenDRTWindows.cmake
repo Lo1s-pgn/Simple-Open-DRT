@@ -1,0 +1,69 @@
+set(OPENDRT_BUILD_ROOT "${CMAKE_SOURCE_DIR}/build/windows" CACHE PATH "Windows build intermediates")
+set(OPENDRT_DIST_PLATFORM_DIR "${CMAKE_SOURCE_DIR}/release/${OPENDRT_RELEASE_FOLDER_WINDOWS}")
+set(OPENDRT_BIN_DIR "${OPENDRT_BUILD_ROOT}/bin")
+set(OPENDRT_INFO_PLIST "${OPENDRT_BUILD_ROOT}/Info.plist")
+set(OPENDRT_OFX_BUNDLE "${OPENDRT_DIST_PLATFORM_DIR}/${OPENDRT_OFX_BUNDLE_STEM}.ofx.bundle")
+
+file(MAKE_DIRECTORY "${OPENDRT_BUILD_ROOT}")
+configure_file(
+  "${CMAKE_SOURCE_DIR}/Info.plist.in"
+  "${OPENDRT_INFO_PLIST}"
+  @ONLY
+)
+add_custom_target(opendrt_gen_plist DEPENDS "${OPENDRT_INFO_PLIST}")
+
+enable_language(CUDA)
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+  set(CMAKE_CUDA_ARCHITECTURES 75 86 89)
+endif()
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -allow-unsupported-compiler")
+find_package(CUDAToolkit REQUIRED)
+
+set(OPENCL_LIB "${CUDAToolkit_LIBRARY_DIR}/OpenCL.lib")
+if(NOT EXISTS "${OPENCL_LIB}")
+  set(OPENCL_LIB "${CUDAToolkit_LIBRARY_ROOT}/lib/x64/OpenCL.lib")
+endif()
+if(NOT EXISTS "${OPENCL_LIB}")
+  message(FATAL_ERROR "OpenCL.lib not found in CUDA Toolkit")
+endif()
+
+set(OPENCL_KERNEL_SRC "${CMAKE_SOURCE_DIR}/plugin/opencl/OpenDRT.cl")
+set(OPENCL_KERNEL_GEN_SCRIPT "${CMAKE_SOURCE_DIR}/plugin/opencl/GenerateOpenDRTCLSource.cmake")
+set(OPENCL_KERNEL_HDR_DIR "${OPENDRT_BUILD_ROOT}/generated")
+set(OPENCL_KERNEL_HDR "${OPENCL_KERNEL_HDR_DIR}/OpenDRTCLSource.h")
+file(MAKE_DIRECTORY "${OPENCL_KERNEL_HDR_DIR}")
+add_custom_command(
+  OUTPUT "${OPENCL_KERNEL_HDR}"
+  COMMAND ${CMAKE_COMMAND}
+    -DINPUT_FILE=${OPENCL_KERNEL_SRC}
+    -DOUTPUT_FILE=${OPENCL_KERNEL_HDR}
+    -P "${OPENCL_KERNEL_GEN_SCRIPT}"
+  DEPENDS "${OPENCL_KERNEL_SRC}" "${OPENCL_KERNEL_GEN_SCRIPT}"
+  VERBATIM
+)
+add_custom_target(OpenDRTOpenCLSourceHeader ALL DEPENDS "${OPENCL_KERNEL_HDR}")
+
+set(OPENDRT_PLATFORM_EXTRA_SRCS "${CMAKE_SOURCE_DIR}/plugin/cuda/OpenDRT.cu")
+set(OPENDRT_PLATFORM_INCLUDE_DIRS "${OPENCL_KERNEL_HDR_DIR}")
+
+set(OPENDRT_COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:CXX>:/W3 /bigobj /MP /EHsc>)
+set(OPENDRT_COMPILE_DEFINITIONS
+  OFX_SUPPORTS_CUDARENDER
+  WINDOWS
+  _WINDOWS
+  WIN32_LEAN_AND_MEAN
+  NOMINMAX
+)
+set(OPENDRT_LINK_LIBS CUDA::cudart_static "${OPENCL_LIB}")
+set(OPENDRT_LINK_OPTIONS "")
+set(OPENDRT_EXTRA_TARGET_DEPS OpenDRTOpenCLSourceHeader opendrt_gen_plist)
+
+include("${CMAKE_CURRENT_LIST_DIR}/OpenDRTCommon.cmake")
+
+target_include_directories(opendrt_ofx PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+
+opendrt_assemble_bundle_postbuild("Win64")
+
+message(STATUS "[OpenDRT] Windows bundle: ${OPENDRT_OFX_BUNDLE}")
