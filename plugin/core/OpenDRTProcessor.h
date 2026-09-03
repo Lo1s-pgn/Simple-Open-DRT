@@ -215,7 +215,6 @@ class OpenDRTProcessor {
   }
 
   // CUDA path is the primary Windows GPU backend.
-  // It keeps existing async + 2D copy optimizations and can fall back to legacy sync via env flag.
   bool renderCUDA(const float* src, float* dst, int width, int height, size_t srcRowBytes, size_t dstRowBytes) {
     std::lock_guard<std::mutex> lock(cudaMutex_);
     const size_t bytes = static_cast<size_t>(width) * static_cast<size_t>(height) * 4u * sizeof(float);
@@ -230,16 +229,12 @@ class OpenDRTProcessor {
     if (!ensureCudaBuffers(bytes)) {
       return false;
     }
-    if (!cudaLegacySyncEnabled_ && !ensureCudaStream()) {
-      debugLog("CUDA stream init failed, using legacy sync path.");
-      return renderCUDALegacy(src, dst, width, height, bytes, srcRowBytes, dstRowBytes);
+    if (!ensureCudaStream()) {
+      debugLog("CUDA stream init failed.");
+      return false;
     }
-    if (!cudaLegacySyncEnabled_ && cudaDualStreamEnabled_ && !ensureCudaCopyResources()) {
+    if (cudaDualStreamEnabled_ && !ensureCudaCopyResources()) {
       debugLog("CUDA copy stream/event init failed, using single-stream path.");
-    }
-
-    if (cudaLegacySyncEnabled_) {
-      return renderCUDALegacy(src, dst, width, height, bytes, srcRowBytes, dstRowBytes);
     }
 
     const auto t0 = std::chrono::steady_clock::now();
@@ -611,7 +606,6 @@ class OpenDRTProcessor {
     perfLogEnabled_ = envFlagEnabled("SIMPLE_OPENDRT_PERF_LOG");
 #if defined(SIMPLE_OPENDRT_HAS_CUDA)
     // Runtime switches for triage/perf tuning without rebuilding.
-    cudaLegacySyncEnabled_ = envFlagEnabled("SIMPLE_OPENDRT_CUDA_LEGACY_SYNC");
     cudaDisable2DCopyEnabled_ = envFlagEnabled("SIMPLE_OPENDRT_DISABLE_CUDA_2D_COPY");
     cudaDualStreamEnabled_ = !envFlagEnabled("SIMPLE_OPENDRT_DISABLE_CUDA_PIPELINE");
     hostCudaForceSyncEnabled_ = envFlagEnabled("SIMPLE_OPENDRT_HOST_CUDA_FORCE_SYNC");
@@ -904,70 +898,6 @@ class OpenDRTProcessor {
     }
   }
 
-  bool renderCUDALegacy(
-      const float* src,
-      float* dst,
-      int width,
-      int height,
-      size_t bytes,
-      size_t srcRowBytes,
-      size_t dstRowBytes) {
-    const auto t0 = std::chrono::steady_clock::now();
-    const size_t packedRowBytes = static_cast<size_t>(width) * 4u * sizeof(float);
-    const bool packedSrc = (srcRowBytes == packedRowBytes);
-    const bool packedDst = (dstRowBytes == packedRowBytes);
-    if (!cudaDisable2DCopyEnabled_ && !packedSrc) {
-      if (cudaMemcpy2D(
-              cudaSrc_,
-              packedRowBytes,
-              src,
-              srcRowBytes,
-              packedRowBytes,
-              static_cast<size_t>(height),
-              cudaMemcpyHostToDevice) != cudaSuccess) {
-        return false;
-      }
-    } else {
-      if (!packedSrc) return false;
-      if (cudaMemcpy(cudaSrc_, src, bytes, cudaMemcpyHostToDevice) != cudaSuccess) {
-        return false;
-      }
-    }
-
-    launchOpenDRTKernel(cudaSrc_, cudaDst_, width, height, &params_, &derived_, nullptr);
-
-    const cudaError_t launchStatus = cudaGetLastError();
-    if (launchStatus != cudaSuccess) {
-      return false;
-    }
-
-    const cudaError_t syncStatus = cudaDeviceSynchronize();
-    if (syncStatus != cudaSuccess) {
-      return false;
-    }
-
-    if (!cudaDisable2DCopyEnabled_ && !packedDst) {
-      if (cudaMemcpy2D(
-              dst,
-              dstRowBytes,
-              cudaDst_,
-              packedRowBytes,
-              packedRowBytes,
-              static_cast<size_t>(height),
-              cudaMemcpyDeviceToHost) != cudaSuccess) {
-        return false;
-      }
-    } else {
-      if (!packedDst) return false;
-      if (cudaMemcpy(dst, cudaDst_, bytes, cudaMemcpyDeviceToHost) != cudaSuccess) {
-        return false;
-      }
-    }
-
-    perfLogStage("CUDA render legacy", t0);
-    return true;
-  }
-
   bool cudaAvailableCached() {
     if (cudaAvailabilityKnown_) {
       return cudaAvailability_;
@@ -1035,7 +965,6 @@ class OpenDRTProcessor {
   bool disableDerivedEnabled_ = false;
 #if defined(SIMPLE_OPENDRT_HAS_CUDA)
   // CUDA feature flags and cached device/runtime state.
-  bool cudaLegacySyncEnabled_ = false;
   bool cudaDisable2DCopyEnabled_ = false;
   bool cudaDualStreamEnabled_ = true;
   bool hostCudaForceSyncEnabled_ = false;

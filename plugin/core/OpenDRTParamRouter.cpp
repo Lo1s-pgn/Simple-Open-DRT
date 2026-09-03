@@ -16,13 +16,6 @@ bool openDrtIsAdvancedParam(const std::string& name) {
   return false;
 }
 
-bool openDrtIsTonescaleParam(const std::string& name) {
-  static const std::vector<std::string> names = {
-      "tn_con","tn_sh","tn_toe","tn_off","tn_hcon_enable","tn_hcon","tn_hcon_pv","tn_hcon_st","tn_lcon_enable","tn_lcon","tn_lcon_w"};
-  for (const auto& n : names) if (n == name) return true;
-  return false;
-}
-
 bool openDrtIsVisibilityToggleParam(const std::string& name) {
   static const std::vector<std::string> names = {
       "tn_hcon_enable","tn_lcon_enable",

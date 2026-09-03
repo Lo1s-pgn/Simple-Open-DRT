@@ -603,25 +603,6 @@ __global__ void OpenDRTKernel(
   dst[i + 3] = src[i + 3];
 }
 
-__global__ void OpenDRTKernelLegacy(
-    const float* __restrict__ src,
-    float* __restrict__ dst,
-    int width,
-    int height,
-    OpenDRTParams p,
-    OpenDRTDerivedParams d) {
-  const int x = blockIdx.x * blockDim.x + threadIdx.x;
-  const int y = blockIdx.y * blockDim.y + threadIdx.y;
-  if (x >= width || y >= height) return;
-  const int i = (y * width + x) * 4;
-  float3 rgb = make_float3(src[i + 0], src[i + 1], src[i + 2]);
-  rgb = openDRTTransform(width, height, x, y, rgb, &p, &d);
-  dst[i + 0] = rgb.x;
-  dst[i + 1] = rgb.y;
-  dst[i + 2] = rgb.z;
-  dst[i + 3] = src[i + 3];
-}
-
 __global__ void OpenDRTKernelPitched(
     const float* __restrict__ src,
     size_t srcRowBytes,
@@ -642,32 +623,6 @@ __global__ void OpenDRTKernelPitched(
 
   float3 rgb = make_float3(srcPx[0], srcPx[1], srcPx[2]);
   rgb = openDRTTransform(width, height, x, y, rgb, p, d);
-  dstPx[0] = rgb.x;
-  dstPx[1] = rgb.y;
-  dstPx[2] = rgb.z;
-  dstPx[3] = srcPx[3];
-}
-
-__global__ void OpenDRTKernelPitchedLegacy(
-    const float* __restrict__ src,
-    size_t srcRowBytes,
-    float* __restrict__ dst,
-    size_t dstRowBytes,
-    int width,
-    int height,
-    OpenDRTParams p,
-    OpenDRTDerivedParams d) {
-  const int x = blockIdx.x * blockDim.x + threadIdx.x;
-  const int y = blockIdx.y * blockDim.y + threadIdx.y;
-  if (x >= width || y >= height) return;
-
-  const char* srcRow = reinterpret_cast<const char*>(src) + static_cast<size_t>(y) * srcRowBytes;
-  const float* srcPx = reinterpret_cast<const float*>(srcRow) + static_cast<size_t>(x) * 4u;
-  char* dstRow = reinterpret_cast<char*>(dst) + static_cast<size_t>(y) * dstRowBytes;
-  float* dstPx = reinterpret_cast<float*>(dstRow) + static_cast<size_t>(x) * 4u;
-
-  float3 rgb = make_float3(srcPx[0], srcPx[1], srcPx[2]);
-  rgb = openDRTTransform(width, height, x, y, rgb, &p, &d);
   dstPx[0] = rgb.x;
   dstPx[1] = rgb.y;
   dstPx[2] = rgb.z;
@@ -731,24 +686,6 @@ extern "C" void launchOpenDRTKernel(
     const OpenDRTParams* p,
     const OpenDRTDerivedParams* d,
     cudaStream_t stream) {
-  auto usePointerParamPass = []() -> bool {
-    static bool inited = false;
-    static bool enabled = true;
-    if (inited) return enabled;
-    inited = true;
-    // Default is pointer-param path (best on current Simple_Open_DRT test matrix).
-    // Allow explicit override for experiments.
-    const char* envPointer = std::getenv("SIMPLE_OPENDRT_CUDA_POINTER_PARAM_PASS");
-    if (envPointer != nullptr && envPointer[0] != '\0') {
-      enabled = !(envPointer[0] == '0' && envPointer[1] == '\0');
-    }
-    // Backward-compat guard: if legacy flag is explicitly enabled, force by-value path.
-    const char* envLegacy = std::getenv("SIMPLE_OPENDRT_CUDA_LEGACY_PARAM_PASS");
-    if (envLegacy != nullptr && envLegacy[0] != '\0' && !(envLegacy[0] == '0' && envLegacy[1] == '\0')) {
-      enabled = false;
-    }
-    return enabled;
-  };
   dim3 block = getCachedCudaBlock();
   dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
   static OpenDRTParams* dParams = nullptr;
@@ -759,18 +696,10 @@ extern "C" void launchOpenDRTKernel(
     if (dDerived == nullptr && cudaMalloc(&dDerived, sizeof(OpenDRTDerivedParams)) != cudaSuccess) return false;
     return true;
   };
-  auto uploadParamsToDevice = [&]() -> bool {
-    if (!ensureDeviceParamBuffers()) return false;
-    if (cudaMemcpyAsync(dParams, p, sizeof(OpenDRTParams), cudaMemcpyHostToDevice, stream) != cudaSuccess) return false;
-    if (cudaMemcpyAsync(dDerived, d, sizeof(OpenDRTDerivedParams), cudaMemcpyHostToDevice, stream) != cudaSuccess) return false;
-    return true;
-  };
-
-  if (usePointerParamPass() && uploadParamsToDevice()) {
-    OpenDRTKernel<<<grid, block, 0, stream>>>(src, dst, width, height, dParams, dDerived);
-  } else {
-    OpenDRTKernelLegacy<<<grid, block, 0, stream>>>(src, dst, width, height, *p, *d);
-  }
+  if (!ensureDeviceParamBuffers()) return;
+  if (cudaMemcpyAsync(dParams, p, sizeof(OpenDRTParams), cudaMemcpyHostToDevice, stream) != cudaSuccess) return;
+  if (cudaMemcpyAsync(dDerived, d, sizeof(OpenDRTDerivedParams), cudaMemcpyHostToDevice, stream) != cudaSuccess) return;
+  OpenDRTKernel<<<grid, block, 0, stream>>>(src, dst, width, height, dParams, dDerived);
 }
 
 extern "C" void launchOpenDRTKernelPitched(
@@ -783,22 +712,6 @@ extern "C" void launchOpenDRTKernelPitched(
     const OpenDRTParams* p,
     const OpenDRTDerivedParams* d,
     cudaStream_t stream) {
-  auto usePointerParamPass = []() -> bool {
-    static bool inited = false;
-    static bool enabled = true;
-    if (inited) return enabled;
-    inited = true;
-    const char* envPointer = std::getenv("SIMPLE_OPENDRT_CUDA_POINTER_PARAM_PASS");
-    if (envPointer != nullptr && envPointer[0] != '\0') {
-      enabled = !(envPointer[0] == '0' && envPointer[1] == '\0');
-    }
-    const char* envLegacy = std::getenv("SIMPLE_OPENDRT_CUDA_LEGACY_PARAM_PASS");
-    if (envLegacy != nullptr && envLegacy[0] != '\0' && !(envLegacy[0] == '0' && envLegacy[1] == '\0')) {
-      enabled = false;
-    }
-    return enabled;
-  };
-
   dim3 block = getCachedCudaBlock();
   dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
 
@@ -810,17 +723,9 @@ extern "C" void launchOpenDRTKernelPitched(
     if (dDerived == nullptr && cudaMalloc(&dDerived, sizeof(OpenDRTDerivedParams)) != cudaSuccess) return false;
     return true;
   };
-  auto uploadParamsToDevice = [&]() -> bool {
-    if (!ensureDeviceParamBuffers()) return false;
-    if (cudaMemcpyAsync(dParams, p, sizeof(OpenDRTParams), cudaMemcpyHostToDevice, stream) != cudaSuccess) return false;
-    if (cudaMemcpyAsync(dDerived, d, sizeof(OpenDRTDerivedParams), cudaMemcpyHostToDevice, stream) != cudaSuccess) return false;
-    return true;
-  };
-
-  if (usePointerParamPass() && uploadParamsToDevice()) {
-    OpenDRTKernelPitched<<<grid, block, 0, stream>>>(src, srcRowBytes, dst, dstRowBytes, width, height, dParams, dDerived);
-  } else {
-    OpenDRTKernelPitchedLegacy<<<grid, block, 0, stream>>>(src, srcRowBytes, dst, dstRowBytes, width, height, *p, *d);
-  }
+  if (!ensureDeviceParamBuffers()) return;
+  if (cudaMemcpyAsync(dParams, p, sizeof(OpenDRTParams), cudaMemcpyHostToDevice, stream) != cudaSuccess) return;
+  if (cudaMemcpyAsync(dDerived, d, sizeof(OpenDRTDerivedParams), cudaMemcpyHostToDevice, stream) != cudaSuccess) return;
+  OpenDRTKernelPitched<<<grid, block, 0, stream>>>(src, srcRowBytes, dst, dstRowBytes, width, height, dParams, dDerived);
 }
 

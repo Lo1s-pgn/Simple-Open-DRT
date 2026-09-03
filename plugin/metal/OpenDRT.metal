@@ -8,12 +8,6 @@ using namespace metal;
 constant float SQRT3 = 1.7320508075688772f;
 constant float PI = 3.1415926535897932f;
 
-#ifndef SIMPLE_OPENDRT_METAL_STAGE_DEBUG
-#define SIMPLE_OPENDRT_METAL_STAGE_DEBUG 0
-#endif
-
-#define ME_STAGE_RETURN(stage_id, value) do { if (SIMPLE_OPENDRT_METAL_STAGE_DEBUG == (stage_id)) return (value); } while (0)
-
 typedef struct {
   float3 x, y, z;
 } drt_float3x3;
@@ -84,8 +78,6 @@ inline float safe_div(float num, float den, float fallback, float eps) {
   return num / den;
 }
 inline float safe_div(float num, float den) { return safe_div(num, den, 0.0f, 1e-6f); }
-inline float safe_recip(float x, float eps) { return safe_div(1.0f, x, 0.0f, eps); }
-inline float safe_recip(float x) { return safe_recip(x, 1e-6f); }
 inline float safe_sqrt(float x) { return sqrt(fmax(0.0f, x)); }
 inline float safe_pow_pos(float base, float expv, float fallback) { return base <= 0.0f ? fallback : pow(base, expv); }
 inline float safe_pow_pos(float base, float expv) { return safe_pow_pos(base, expv, 0.0f); }
@@ -332,7 +324,6 @@ inline float3 openDRTTransform(
 
   // Stage 3: input linearization.
   rgb = linearize(rgb, in_oetf);
-  ME_STAGE_RETURN(3, rgb);
 
   // Stage 4: tonescale parameter derivation.
   float ts_x1, ts_y1, ts_x0, ts_y0, ts_s0, ts_p, ts_s10, ts_m1, ts_m2, ts_s, ts_dsc, pt_cmp_Lf, s_Lp100, ts_s1;
@@ -370,7 +361,6 @@ inline float3 openDRTTransform(
 
   // Stage 5: input-to-P3 conversion.
   rgb = vdot(matrix_xyz_to_p3d65, vdot(in_to_xyz, rgb));
-  ME_STAGE_RETURN(5, rgb);
   float3 rs_w = make_float3(rs_rw, 1.0f - rs_rw - rs_bw, rs_bw);
   float sat_L = rgb.x * rs_w.x + rgb.y * rs_w.y + rgb.z * rs_w.z;
   rgb = sat_L * rs_sa + rgb * (1.0f - rs_sa);
@@ -391,7 +381,6 @@ inline float3 openDRTTransform(
   float3 ha_rgb = make_float3(gauss_window(hue_offset(hue, 0.1f), 0.66f), gauss_window(hue_offset(hue, 4.3f), 0.66f), gauss_window(hue_offset(hue, 2.3f), 0.66f));
   float3 ha_rgb_hs = make_float3(gauss_window(hue_offset(hue, -0.4f), 0.66f), ha_rgb.y, gauss_window(hue_offset(hue, 2.5f), 0.66f));
   float3 ha_cmy = make_float3(gauss_window(hue_offset(hue, 3.3f), 0.5f), gauss_window(hue_offset(hue, 1.3f), 0.5f), gauss_window(hue_offset(hue, -1.15f), 0.5f));
-  ME_STAGE_RETURN(6, rgb);
 
   // Stage 7: brilliance.
   if (brl_enable) {
@@ -468,7 +457,6 @@ inline float3 openDRTTransform(
 
   // Stage 12: display gamut whitepoint adaptation.
   rgb = display_gamut_whitepoint(rgb, tsn_const, cwp_lm, display_gamut, cwp);
-  ME_STAGE_RETURN(12, rgb);
 
   // Stage 13: brilliance-plus.
   if (brlp_enable) {
@@ -494,14 +482,12 @@ inline float3 openDRTTransform(
 
   if (display_gamut == 2) { rgb = vdot(matrix_p3_to_rec2020, clampminf3(rgb, 0.0f)); }
   if (clamp) rgb = clampf3(rgb, 0.0f, 1.0f);
-  ME_STAGE_RETURN(14, rgb);
 
   // Stage 15: final EOTF / clamp.
   float eotf_p = 2.0f + eotf * 0.2f;
   if ((eotf > 0) && (eotf < 4)) rgb = spowf3(rgb, 1.0f / eotf_p);
   else if (eotf == 4) rgb = eotf_pq(rgb, 1);
   else if (eotf == 5) rgb = eotf_hlg(rgb, 1);
-  ME_STAGE_RETURN(15, rgb);
 
   // Stage 16: optional curve overlay branch.
   if (crv_enable == 1) {

@@ -54,7 +54,6 @@ extern char** environ;
 #include "OpenDRTRender.h"
 
 bool openDrtIsAdvancedParam(const std::string& name);
-bool openDrtIsTonescaleParam(const std::string& name);
 bool openDrtIsVisibilityToggleParam(const std::string& name);
 const char* openDrtTooltipForParam(const std::string& name);
 

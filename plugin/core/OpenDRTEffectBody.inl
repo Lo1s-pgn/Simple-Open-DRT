@@ -602,29 +602,12 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
     return openDrtIsAdvancedParam(name);
   }
 
-  bool isTonescaleParam(const std::string& name) const {
-    return openDrtIsTonescaleParam(name);
-  }
-
   bool isVisibilityToggleParam(const std::string& name) const {
     return openDrtIsVisibilityToggleParam(name);
   }
 
   bool almostEqual(float a, float b, float eps = 1e-6f) const {
     return std::fabs(a - b) <= eps;
-  }
-
-  // ===== Label Helpers: display name composition for clean/modified states =====
-  std::string lookPresetDisplayName(int lookPresetIndex) const {
-    return currentPresetName(lookPresetIndex);
-  }
-
-  std::string presetLabelCleanForLook(int lookPresetIndex) const {
-    return lookPresetDisplayName(lookPresetIndex) + " | " + buildLabelText();
-  }
-
-  std::string presetLabelCustomForLook(int lookPresetIndex) const {
-    return std::string("Custom (") + lookPresetDisplayName(lookPresetIndex) + ") | " + buildLabelText();
   }
 
   int matchingDisplayEncodingPresetForCurrent(double time) const {
