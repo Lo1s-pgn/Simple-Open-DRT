@@ -4,6 +4,7 @@
 #include <string>
 
 std::filesystem::path userPresetDirPath();
+std::filesystem::path bundledCombinedPresetDirPath();
 
 std::string pickOpenXmlFilePath();
 std::string pickSaveXmlFilePath(const std::string& defaultName);

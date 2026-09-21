@@ -89,6 +89,8 @@ function(opendrt_assemble_bundle_postbuild p_PlatformSubdir)
     COMMAND ${CMAKE_COMMAND} -E remove_directory "${OPENDRT_OFX_BUNDLE}/Contents"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${OPENDRT_OFX_BUNDLE}/Contents/${p_PlatformSubdir}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${OPENDRT_OFX_BUNDLE}/Contents/Resources"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${OPENDRT_OFX_BUNDLE}/Contents/Resources/presets"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/presets" "${OPENDRT_OFX_BUNDLE}/Contents/Resources/presets"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${OPENDRT_INFO_PLIST}" "${OPENDRT_OFX_BUNDLE}/Contents/Info.plist"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:opendrt_ofx>" "${_bundle_ofx}"
     COMMENT "Assemble ${OPENDRT_OFX_BUNDLE_STEM}.ofx.bundle (${p_PlatformSubdir}) -> ${OPENDRT_DIST_PLATFORM_DIR}"

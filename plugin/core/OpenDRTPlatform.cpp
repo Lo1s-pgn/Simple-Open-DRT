@@ -205,3 +205,43 @@ bool openExternalUrl(const std::string& url) {
   return std::system(cmd.c_str()) == 0;
 }
 #endif
+
+#if defined(_WIN32)
+#define NOMINMAX
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
+namespace {
+void openDrtPlatformModuleAnchor() {}
+
+std::filesystem::path pluginBinaryPath() {
+#ifdef _WIN32
+  HMODULE self = nullptr;
+  if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          reinterpret_cast<LPCSTR>(&openDrtPlatformModuleAnchor), &self)) {
+    return {};
+  }
+  char modulePath[MAX_PATH] = {0};
+  if (GetModuleFileNameA(self, modulePath, MAX_PATH) == 0) return {};
+  return std::filesystem::path(modulePath);
+#else
+  Dl_info info{};
+  if (dladdr(reinterpret_cast<void*>(&openDrtPlatformModuleAnchor), &info) == 0 || info.dli_fname == nullptr) {
+    return {};
+  }
+  return std::filesystem::path(info.dli_fname);
+#endif
+}
+}  // namespace
+
+std::filesystem::path bundledCombinedPresetDirPath() {
+  const std::filesystem::path bin = pluginBinaryPath();
+  if (bin.empty()) return {};
+  std::error_code ec;
+  const std::filesystem::path dir =
+      std::filesystem::weakly_canonical(bin.parent_path() / ".." / "Resources" / "presets", ec);
+  if (ec) return bin.parent_path() / ".." / "Resources" / "presets";
+  return dir;
+}

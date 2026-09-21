@@ -137,12 +137,16 @@ std::filesystem::path combinedUserPresetDirPath() {
   return userPresetDirPath() / "combined_presets";
 }
 
-std::vector<std::string> combinedPresetXmlNames() {
+namespace {
+std::vector<std::string> combinedPresetXmlNamesInDir(const std::filesystem::path& dir, bool createDir) {
   std::vector<std::string> out;
   std::error_code ec;
-  const std::filesystem::path dir = combinedUserPresetDirPath();
-  std::filesystem::create_directories(dir, ec);
-  if (ec) return out;
+  if (createDir) {
+    std::filesystem::create_directories(dir, ec);
+    if (ec) return out;
+  } else if (!std::filesystem::exists(dir, ec) || ec) {
+    return out;
+  }
   for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
     if (ec) break;
     if (!entry.is_regular_file()) continue;
@@ -152,6 +156,23 @@ std::vector<std::string> combinedPresetXmlNames() {
   }
   std::sort(out.begin(), out.end());
   out.erase(std::unique(out.begin(), out.end()), out.end());
+  return out;
+}
+}  // namespace
+
+std::filesystem::path combinedPresetXmlPathForName(const std::string& name) {
+  const std::filesystem::path bundled = bundledCombinedPresetDirPath() / (name + ".xml");
+  std::error_code ec;
+  if (std::filesystem::exists(bundled, ec) && !ec) return bundled;
+  return combinedUserPresetDirPath() / (name + ".xml");
+}
+
+std::vector<std::string> combinedPresetXmlNames() {
+  std::vector<std::string> out = combinedPresetXmlNamesInDir(bundledCombinedPresetDirPath(), false);
+  const std::vector<std::string> userNames = combinedPresetXmlNamesInDir(combinedUserPresetDirPath(), true);
+  for (const auto& name : userNames) {
+    if (std::find(out.begin(), out.end(), name) == out.end()) out.push_back(name);
+  }
   return out;
 }
 

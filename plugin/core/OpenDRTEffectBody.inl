@@ -392,7 +392,7 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
       const std::vector<std::string> names = combinedPresetXmlNames();
       const int rel = idx - 1;
       if (rel < 0 || rel >= static_cast<int>(names.size())) return true;
-      const std::filesystem::path path = combinedUserPresetDirPath() / (names[static_cast<size_t>(rel)] + ".xml");
+      const std::filesystem::path path = combinedPresetXmlPathForName(names[static_cast<size_t>(rel)]);
       std::string presetName;
       LookPresetValues look{};
       TonescalePresetValues tone{};
