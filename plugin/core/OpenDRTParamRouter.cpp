@@ -25,3 +25,18 @@ bool openDrtIsVisibilityToggleParam(const std::string& name) {
   for (const auto& n : names) if (n == name) return true;
   return false;
 }
+
+bool openDrtInvalidatesUserCombinedPreset(const std::string& name) {
+  static const std::vector<std::string> lookGroupNames = {
+      "lookPreset",
+      "tonescalePreset",
+      "creativeWhitePreset",
+      "tn_Lp",
+      "tn_Lg",
+      "tn_gb",
+      "pt_hdr"};
+  for (const auto& n : lookGroupNames) {
+    if (n == name) return true;
+  }
+  return openDrtIsAdvancedParam(name);
+}

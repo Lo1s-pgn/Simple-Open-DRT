@@ -240,10 +240,7 @@ inline const char* surroundNameFromIndex(int tn_su) {
 }
 
 // Resolved-params mutators used by resolveParams() and paramChanged() paths.
-inline void applyLookPresetToResolved(OpenDRTParams& p, int lookPresetIndex) {
-  const int idx = (lookPresetIndex < 0 || lookPresetIndex >= static_cast<int>(kLookPresets.size())) ? 0 : lookPresetIndex;
-  const LookPresetValues& s = kLookPresets[static_cast<size_t>(idx)];
-
+inline void applyLookPresetValuesToResolved(OpenDRTParams& p, const LookPresetValues& s) {
   p.tn_con = s.tn_con; p.tn_sh = s.tn_sh; p.tn_toe = s.tn_toe; p.tn_off = s.tn_off;
   p.tn_hcon_enable = s.tn_hcon_enable; p.tn_hcon = s.tn_hcon; p.tn_hcon_pv = s.tn_hcon_pv; p.tn_hcon_st = s.tn_hcon_st;
   p.tn_lcon_enable = s.tn_lcon_enable; p.tn_lcon = s.tn_lcon; p.tn_lcon_w = s.tn_lcon_w;
@@ -261,14 +258,22 @@ inline void applyLookPresetToResolved(OpenDRTParams& p, int lookPresetIndex) {
   p.hs_cmy_enable = s.hs_cmy_enable; p.hs_c = s.hs_c; p.hs_c_rng = s.hs_c_rng; p.hs_m = s.hs_m; p.hs_m_rng = s.hs_m_rng; p.hs_y = s.hs_y; p.hs_y_rng = s.hs_y_rng;
 }
 
+inline void applyLookPresetToResolved(OpenDRTParams& p, int lookPresetIndex) {
+  const int idx = (lookPresetIndex < 0 || lookPresetIndex >= static_cast<int>(kLookPresets.size())) ? 0 : lookPresetIndex;
+  applyLookPresetValuesToResolved(p, kLookPresets[static_cast<size_t>(idx)]);
+}
+
+inline void applyTonescalePresetValuesToResolved(OpenDRTParams& p, const TonescalePresetValues& t) {
+  p.tn_con = t.tn_con; p.tn_sh = t.tn_sh; p.tn_toe = t.tn_toe; p.tn_off = t.tn_off;
+  p.tn_hcon_enable = t.tn_hcon_enable; p.tn_hcon = t.tn_hcon; p.tn_hcon_pv = t.tn_hcon_pv; p.tn_hcon_st = t.tn_hcon_st;
+  p.tn_lcon_enable = t.tn_lcon_enable; p.tn_lcon = t.tn_lcon; p.tn_lcon_w = t.tn_lcon_w;
+}
+
 inline void applyTonescalePresetToResolved(OpenDRTParams& p, int tonescalePresetIndex) {
   if (tonescalePresetIndex < 0 || tonescalePresetIndex >= 13) {
     return;
   }
-  const TonescalePresetValues& t = kTonescalePresets[static_cast<size_t>(tonescalePresetIndex)];
-  p.tn_con = t.tn_con; p.tn_sh = t.tn_sh; p.tn_toe = t.tn_toe; p.tn_off = t.tn_off;
-  p.tn_hcon_enable = t.tn_hcon_enable; p.tn_hcon = t.tn_hcon; p.tn_hcon_pv = t.tn_hcon_pv; p.tn_hcon_st = t.tn_hcon_st;
-  p.tn_lcon_enable = t.tn_lcon_enable; p.tn_lcon = t.tn_lcon; p.tn_lcon_w = t.tn_lcon_w;
+  applyTonescalePresetValuesToResolved(p, kTonescalePresets[static_cast<size_t>(tonescalePresetIndex)]);
 }
 
 inline void applyDisplayEncodingPreset(OpenDRTParams& p, int preset) {

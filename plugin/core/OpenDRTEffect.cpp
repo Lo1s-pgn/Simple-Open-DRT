@@ -55,6 +55,7 @@ extern char** environ;
 
 bool openDrtIsAdvancedParam(const std::string& name);
 bool openDrtIsVisibilityToggleParam(const std::string& name);
+bool openDrtInvalidatesUserCombinedPreset(const std::string& name);
 const char* openDrtTooltipForParam(const std::string& name);
 
 #include "OpenDRTEffectBody.inl"

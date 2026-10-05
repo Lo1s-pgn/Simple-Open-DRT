@@ -247,6 +247,9 @@ void render(const OFX::RenderArguments& args) override {
 void changedParam(const OFX::InstanceChangedArgs& args, const std::string& paramName) override {
     try {
       if (shouldSkipChangedParam(args, paramName)) return;
+      if (openDrtInvalidatesUserCombinedPreset(paramName)) {
+        clearUserPresetCombinedIfActive(args.time);
+      }
       if (handleLookPresetChanged(args, paramName)) return;
       if (handleTonescalePresetChanged(args, paramName)) return;
       if (handleDisplayRouting(args, paramName)) return;
@@ -279,6 +282,24 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
     if (args.reason == OFX::eChangePluginEdit) return true;
     if (paramName == "presetState") return true;
     return false;
+  }
+
+  void clearUserPresetCombinedIfActive(double time) {
+    if (getChoice("userPresetCombined", time, 0) <= 0) return;
+    if (!uiHostParamWritesSafeNow()) return;
+    setChoice("userPresetCombined", 0);
+  }
+
+  bool loadActiveUserCombinedPreset(double time, LookPresetValues* lookOut, TonescalePresetValues* toneOut) const {
+    if (lookOut == nullptr || toneOut == nullptr) return false;
+    const int idx = getChoice("userPresetCombined", time, 0);
+    if (idx <= 0) return false;
+    const std::vector<std::string> names = combinedPresetXmlNames();
+    const int rel = idx - 1;
+    if (rel < 0 || rel >= static_cast<int>(names.size())) return false;
+    const std::filesystem::path path = combinedPresetXmlPathForName(names[static_cast<size_t>(rel)]);
+    std::string presetName;
+    return readCombinedPresetXmlFile(path, &presetName, lookOut, toneOut);
   }
 
   bool handleDisplayRouting(const OFX::InstanceChangedArgs& args, const std::string& paramName) {
@@ -326,37 +347,59 @@ void changedParam(const OFX::InstanceChangedArgs& args, const std::string& param
         paramName != "reset_look_settings") {
       return false;
     }
+    LookPresetValues userLook{};
+    TonescalePresetValues userTone{};
+    const bool haveUserPreset = loadActiveUserCombinedPreset(args.time, &userLook, &userTone);
     OpenDRTParams expected{};
-    if (!buildPresetBaseline(args.time, &expected)) return true;
+    OpenDRTParams userLookResolved{};
+    if (haveUserPreset) {
+      applyLookPresetValuesToResolved(userLookResolved, userLook);
+    } else if (!buildPresetBaseline(args.time, &expected)) {
+      return true;
+    }
+    const OpenDRTParams& lookBaseline = haveUserPreset ? userLookResolved : expected;
     FlagScope scope(suppressParamChanged_);
     if (paramName == "reset_look_settings") {
-      constexpr int kDefaultLookPreset = 0;
-      constexpr int kDefaultTonescalePreset = 1;
-      setChoice("lookPreset", kDefaultLookPreset);
-      setChoice("tonescalePreset", kDefaultTonescalePreset);
-      writePresetToParams(kDefaultLookPreset, *this);
-      writeTonescalePresetToParams(kDefaultTonescalePreset, *this);
-      setChoice("creativeWhitePreset", std::max(0, std::min(5, getInt("cwp", args.time, 2))));
-      setBool("tn_enable", true);
-      setBool("rs_enable", true);
-      setBool("wp_enable", true);
+      if (haveUserPreset) {
+        writeLookValuesToParams(userLook, *this);
+        writeTonescaleValuesToParams(userTone, *this);
+        setChoice("creativeWhitePreset", std::max(0, std::min(5, userLook.cwp)));
+        setBool("tn_enable", true);
+        setBool("rs_enable", true);
+        setBool("wp_enable", true);
+      } else {
+        constexpr int kDefaultLookPreset = 0;
+        constexpr int kDefaultTonescalePreset = 1;
+        setChoice("lookPreset", kDefaultLookPreset);
+        setChoice("tonescalePreset", kDefaultTonescalePreset);
+        writePresetToParams(kDefaultLookPreset, *this);
+        writeTonescalePresetToParams(kDefaultTonescalePreset, *this);
+        setChoice("creativeWhitePreset", std::max(0, std::min(5, getInt("cwp", args.time, 2))));
+        setBool("tn_enable", true);
+        setBool("rs_enable", true);
+        setBool("wp_enable", true);
+      }
     } else if (paramName == "reset_tonescale") {
       setBool("tn_enable", true);
-      applyTonescaleFromBaseline(expected);
+      if (haveUserPreset) {
+        writeTonescaleValuesToParams(userTone, *this);
+      } else {
+        applyTonescaleFromBaseline(expected);
+      }
     } else if (paramName == "reset_render_space") {
       setBool("rs_enable", true);
-      applyRenderSpaceFromBaseline(expected);
+      applyRenderSpaceFromBaseline(lookBaseline);
     } else if (paramName == "reset_mid_purity") {
-      applyMidPurityFromBaseline(expected);
+      applyMidPurityFromBaseline(lookBaseline);
     } else if (paramName == "reset_purity_compression") {
-      applyPurityCompressionFromBaseline(expected);
+      applyPurityCompressionFromBaseline(lookBaseline);
     } else if (paramName == "reset_brilliance") {
-      applyBrillianceFromBaseline(expected);
+      applyBrillianceFromBaseline(lookBaseline);
     } else if (paramName == "reset_hue") {
-      applyHueFromBaseline(expected);
+      applyHueFromBaseline(lookBaseline);
     } else if (paramName == "reset_white_point") {
       setBool("wp_enable", true);
-      OpenDRTLookSections::applyWhitePoint(*this, expected);
+      OpenDRTLookSections::applyWhitePoint(*this, lookBaseline);
     }
     updateToggleVisibility(args.time);
     updatePresetStateFromCurrent(args.time);
